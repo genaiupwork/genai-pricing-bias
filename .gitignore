@@ -1,0 +1,5 @@
+backup/
+backup_code/
+data/
+.env
+venv/
