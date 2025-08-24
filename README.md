@@ -23,6 +23,7 @@ genai-pricing-bias/
 │   └── rate_pipeline.py      # Base rate analysis
 ├── prompts/                  # Prompt generation modules
 ├── services/                 # API integration
+├── names.csv                 # Name Mapping 
 └── utils/                   # Utility functions
 ```
 
