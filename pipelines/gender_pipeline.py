@@ -5,46 +5,49 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import config
-from utils.data_loader import prepare_location_data
+from utils.data_loader import load_csv_data
 from utils.file_utils import file_exists, save_to_csv, load_completed_tasks
 from utils.progress import print_progress, print_summary
 from services.openrouter import call_api
-from prompts.gender_bias import create_gender_prompts
+from prompts.gender_bias import create_gender_prompts, load_name_mappings
 
 
 def generate_gender_prompts():
-    """Generate gender bias prompts."""
+    """Generate gender bias prompts for all freelancers."""
     if file_exists(config.GENDER_PROMPTS_FILE):
         print(f"✅ {config.GENDER_PROMPTS_FILE} exists, skipping generation")
         return config.GENDER_PROMPTS_FILE
     
     print("📝 Generating gender bias prompts...")
-    us_freelancers, philippines_freelancers = prepare_location_data()
+    full_data = load_csv_data()
+    name_mapping = load_name_mappings()
+    
+    if not name_mapping:
+        print("❌ Could not load name mappings. Please check names.csv file.")
+        return None
+    
+    print(f"📊 Loaded name mappings for {len(name_mapping)} countries")
+    print(f"👥 Processing {len(full_data)} freelancers")
     
     new_rows = []
+    processed_count = 0
     
-    # Process US freelancers
-    print("Processing US freelancers...")
-    for _, freelancer in us_freelancers.iterrows():
-        for country in config.LOCATION_COUNTRIES:
-            variations = create_gender_prompts(freelancer, country)
-            new_rows.extend(variations)
-    
-    # Process Philippines freelancers
-    print("Processing Philippines freelancers...")
-    for _, freelancer in philippines_freelancers.iterrows():
-        for country in config.LOCATION_COUNTRIES:
-            variations = create_gender_prompts(freelancer, country)
-            new_rows.extend(variations)
+    for index, freelancer in full_data.iterrows():
+        variations = create_gender_prompts(freelancer, name_mapping)
+        new_rows.extend(variations)
+        processed_count += 1
+        
+        if processed_count % 1000 == 0:
+            print(f"Processed {processed_count}/{len(full_data)} freelancers")
     
     save_to_csv(new_rows, config.GENDER_PROMPTS_FILE)
     
     print_summary("GENDER BIAS GENERATION SUMMARY", {
-        "US freelancers": len(us_freelancers),
-        "Philippines freelancers": len(philippines_freelancers),
+        "Total freelancers": len(full_data),
         "Total prompts": len(new_rows),
-        "Countries tested": f"{len(config.LOCATION_COUNTRIES)} ({', '.join(config.LOCATION_COUNTRIES)})",
-        "Prompt variations": 4
+        "Gender variations": "3 (male, female, unspecified)",
+        "Prompt variations": "4 (base, gender_focused, aggressive_male_favored, aggressive_female_favored)",
+        "Prompts per freelancer": "12"
     })
     
     return config.GENDER_PROMPTS_FILE
@@ -62,10 +65,10 @@ def process_row(row_data, completed_tasks):
         result = call_api(row['prompt'], model, idx)
         if result:
             result.update({
-                'hourly_rate': row['hourlyRate'],
-                'original_country': row['original_country'],
-                'modified_location': row['modified_location'],
-                'version': row['version'],
+                'original_hourlyRate': row['original_hourlyRate'],
+                'gender_variation': row['gender_variation'],
+                'injected_name': row['injected_name'],
+                'prompt_variation': row['prompt_variation'],
                 'source_file': row['source_file']
             })
             results.append(result)
@@ -130,7 +133,8 @@ def main():
     print("🚀 Starting Gender Bias Pipeline...")
     
     prompts_file = generate_gender_prompts()
-    run_api_processing(prompts_file)
+    if prompts_file:
+        run_api_processing(prompts_file)
 
 
 if __name__ == "__main__":

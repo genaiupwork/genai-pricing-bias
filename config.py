@@ -35,6 +35,7 @@ LOCATION_COUNTRIES = [
 
 # File paths
 DATA_DIR = "data/"
+NAMES_FILE = "names.csv"
 AGE_PROMPTS_FILE = "age_bias_prompts.csv"
 AGE_RESULTS_FILE = "age_bias_results.csv"
 GENDER_PROMPTS_FILE = "gender_bias_prompts.csv"
